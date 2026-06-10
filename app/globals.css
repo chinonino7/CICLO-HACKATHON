@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  background: #f1efe9;
+  color: #0b1f18;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Marco mobile-first: MiniPay usa 360x640. Centrado en desktop. */
+.frame {
+  max-width: 420px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  background: #fafafa;
+}
+
+/* Divisores ultra finos del estilo old money. */
+.hairline {
+  border-color: #e7e4dd;
+}
