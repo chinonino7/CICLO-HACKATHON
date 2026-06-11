@@ -2,11 +2,12 @@ import {
   createPublicClient,
   createWalletClient,
   custom,
+  fallback,
   http,
   parseUnits,
   formatUnits,
 } from "viem";
-import { CHAIN } from "./chain";
+import { CHAIN, NETWORK } from "./chain";
 import { FACTORY_ABI, FACTORY_ADDRESS, CICLO_ABI, ERC20_ABI } from "./contract-ciclo";
 import { CURRENCIES, currencyByAddress, type CurrencyKey } from "./tokens";
 import { USING_MOCK, MOCK_ME } from "./mock";
@@ -38,10 +39,30 @@ export type CycleDetail = Cycle & {
   paidThisRound: Record<string, boolean>;
 };
 
-export const publicClient = createPublicClient({ chain: CHAIN, transport: http() });
+// Lecturas con RPCs de respaldo: si forno falla (bloqueos de red, caídas),
+// viem pasa automáticamente al siguiente.
+const transports =
+  NETWORK === "celo"
+    ? [http()]
+    : [http(), http("https://celo-sepolia.drpc.org"), http("https://rpc.ankr.com/celo_sepolia")];
+
+export const publicClient = createPublicClient({ chain: CHAIN, transport: fallback(transports) });
 
 function walletClient() {
   return createWalletClient({ chain: CHAIN, transport: custom((window as any).ethereum) });
+}
+
+/** Asegura que la wallet esté en la red correcta antes de firmar (Rabby/MetaMask). */
+async function ensureChain(client: ReturnType<typeof walletClient>) {
+  const current = await client.getChainId();
+  if (current === CHAIN.id) return;
+  try {
+    await client.switchChain({ id: CHAIN.id });
+  } catch {
+    // La wallet no tiene la red: agregarla y volver a intentar el cambio.
+    await client.addChain({ chain: CHAIN });
+    await client.switchChain({ id: CHAIN.id });
+  }
 }
 
 /** feeCurrency (CIP-64) solo dentro de MiniPay; MetaMask paga gas en CELO. */
@@ -180,6 +201,7 @@ export async function createCycle(
     return MOCK_HASH;
   }
   const client = walletClient();
+  await ensureChain(client);
   const [account] = await client.getAddresses();
   const hash = await client.writeContract({
     account,
@@ -200,6 +222,7 @@ export async function joinCycle(id: number, currency: CurrencyKey): Promise<`0x$
   }
   const addr = await cycleAddress(id);
   const client = walletClient();
+  await ensureChain(client);
   const [account] = await client.getAddresses();
   const hash = await client.writeContract({
     account,
@@ -221,6 +244,7 @@ export async function contribute(id: number, currency: CurrencyKey, amount: numb
   const cfg = CURRENCIES[currency];
   const addr = await cycleAddress(id);
   const client = walletClient();
+  await ensureChain(client);
   const [account] = await client.getAddresses();
   const value = parseUnits(String(amount), cfg.decimals);
 
@@ -265,6 +289,7 @@ export async function setOrder(
   }
   const addr = await cycleAddress(id);
   const client = walletClient();
+  await ensureChain(client);
   const [account] = await client.getAddresses();
   const hash = await client.writeContract({
     account,
@@ -285,6 +310,7 @@ export async function startCycle(id: number, currency: CurrencyKey): Promise<`0x
   }
   const addr = await cycleAddress(id);
   const client = walletClient();
+  await ensureChain(client);
   const [account] = await client.getAddresses();
   const hash = await client.writeContract({
     account,
@@ -319,6 +345,7 @@ export async function claimPot(id: number, currency: CurrencyKey): Promise<`0x${
   }
   const addr = await cycleAddress(id);
   const client = walletClient();
+  await ensureChain(client);
   const [account] = await client.getAddresses();
   const hash = await client.writeContract({
     account,

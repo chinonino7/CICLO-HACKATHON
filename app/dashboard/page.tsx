@@ -8,6 +8,7 @@ import { CycleCard, type CardStatus } from "@/components/CycleCard";
 import { EmptyState } from "@/components/EmptyState";
 import { useMiniPay } from "@/hooks/useMiniPay";
 import { getCycles, getBalance, hasPaidRound, type Cycle } from "@/lib/ciclo";
+import { errorMessage } from "@/lib/errors";
 import { money, turnRound } from "@/lib/format";
 import type { CurrencyKey } from "@/lib/tokens";
 import { USING_MOCK, MOCK_ME, setMode } from "@/lib/mock";
@@ -17,6 +18,7 @@ export default function Dashboard() {
   const [currency, setCurrency] = useState<CurrencyKey>("cUSD");
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [loadState, setLoadState] = useState<"loading" | "error" | "ok">("loading");
+  const [errText, setErrText] = useState("");
   const [balance, setBalance] = useState<number | null>(null);
   const [statuses, setStatuses] = useState<Record<number, CardStatus>>({});
   // Gated por useEffect para no romper la hidratación (USING_MOCK lee localStorage).
@@ -29,7 +31,9 @@ export default function Dashboard() {
     try {
       setCycles(await getCycles());
       setLoadState("ok");
-    } catch {
+    } catch (e) {
+      console.error("getCycles:", e);
+      setErrText(errorMessage(e));
       setCycles([]);
       setLoadState("error");
     }
@@ -124,7 +128,7 @@ export default function Dashboard() {
           ) : loadState === "error" ? (
             <div className="mt-4 rounded-lg border border-claret/40 bg-claret/5 px-4 py-4">
               <p className="text-sm font-medium text-claret">No pudimos cargar tus ciclos</p>
-              <p className="mt-1 text-sm text-muted">Revisa tu conexión e intenta de nuevo.</p>
+              <p className="mt-1 text-sm text-muted">{errText || "Revisa tu conexión e intenta de nuevo."}</p>
               <button
                 onClick={loadCycles}
                 className="mt-3 rounded-lg border border-claret/40 px-4 py-2 text-sm font-medium text-claret"
