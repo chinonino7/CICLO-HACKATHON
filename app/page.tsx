@@ -3,8 +3,6 @@
 import { useEffect } from "react";
 import { Wordmark } from "@/components/Wordmark";
 import { Button } from "@/components/Button";
-import { Avatar } from "@/components/Avatar";
-import { ProgressBar } from "@/components/ProgressBar";
 import { Stepper } from "@/components/Stepper";
 import { FAQ } from "@/components/FAQ";
 import { useMiniPay } from "@/hooks/useMiniPay";
@@ -52,36 +50,6 @@ const FAQS = [
   },
 ];
 
-/** Tarjeta estática que simula un ciclo en progreso (solo visual, datos fijos). */
-function HeroCycleMock() {
-  const members = ["María", "Carlos", "Luisa", "Andrés", "Paola"];
-  return (
-    <div className="mt-8 w-full rounded-xl border border-line bg-white p-5 text-left shadow-sm">
-      <div className="flex items-center justify-between">
-        <p className="font-display text-sm font-semibold text-ink">Ahorro de la cuadra</p>
-        <span className="rounded-full bg-bronze/15 px-2.5 py-0.5 text-xs text-bronze">
-          Ronda 3 de 5
-        </span>
-      </div>
-      <p className="mt-3 font-display text-2xl font-semibold text-forest">250.000 COPm</p>
-      <p className="text-xs text-muted">en el pozo · recibe María</p>
-      <div className="mt-4">
-        <ProgressBar pct={60} />
-      </div>
-      <div className="mt-4 flex items-center justify-between">
-        <div className="flex -space-x-2">
-          {members.map((m) => (
-            <span key={m} className="rounded-full ring-2 ring-white">
-              <Avatar name={m} size={28} />
-            </span>
-          ))}
-        </div>
-        <span className="text-xs text-muted">5 miembros</span>
-      </div>
-    </div>
-  );
-}
-
 export default function Onboarding() {
   const { address, isMiniPay, isLoading } = useMiniPay();
 
@@ -111,8 +79,6 @@ export default function Onboarding() {
         <p className="mt-3 max-w-[19rem] text-sm leading-relaxed text-muted">
           Digitaliza tu ahorro rotativo. Aportes y turnos claros, sin intermediarios.
         </p>
-        <HeroCycleMock />
-
         <div className="mt-8 w-full space-y-3">
           <Button full onClick={() => enter("real")} disabled={isLoading && isMiniPay}>
             Conectar con MiniPay
