@@ -5,18 +5,59 @@ import type { CurrencyKey } from "./tokens";
 import { MOCK_ME } from "./mock";
 
 // Subir la versión de las claves descarta los datos demo anteriores del navegador.
-const CKEY = "ciclo-mock-cycles-v3";
-const PKEY = "ciclo-mock-paid-v3";
+const CKEY = "ciclo-mock-cycles-v4";
+const PKEY = "ciclo-mock-paid-v4";
 
 const addr = (n: number) =>
   `0x${(n + 0xa11ce).toString(16).padStart(40, "0")}` as `0x${string}`;
 
+// Ciclos de ejemplo para que el demo muestre todo el funcionamiento:
+// uno en curso (con aportes) y uno por iniciar.
 function seedCycles(): Cycle[] {
-  return [];
+  return [
+    {
+      id: 0,
+      admin: addr(9),
+      name: "Ahorro viaje fin de año",
+      currency: "cUSD",
+      token: "0x765DE816845861e75A25fCA122bb6898B8B1282a",
+      amount: 20,
+      frequency: 0,
+      orderMode: 0,
+      size: 4,
+      round: 0,
+      roundStart: 0,
+      started: false,
+      members: [addr(9), MOCK_ME, addr(7)],
+      payoutOrder: [],
+    },
+    {
+      id: 1,
+      admin: MOCK_ME,
+      name: "Ahorro de la cuadra",
+      currency: "COPm",
+      token: "0x8A567e2aE79CA692Bd748aB832081C45de4041eA",
+      amount: 50000,
+      frequency: 1,
+      orderMode: 1,
+      size: 6,
+      round: 0,
+      roundStart: Math.floor(Date.now() / 1000) - 2 * 86400,
+      started: true,
+      members: [MOCK_ME, addr(2), addr(3), addr(4), addr(5)],
+      payoutOrder: [2, 0, 4, 1, 3],
+    },
+  ];
 }
 
 function seedPaid(): Record<string, boolean> {
-  return {};
+  const c = seedCycles()[1];
+  const paidIdx = [0, 1, 3]; // algunos ya consignaron
+  const p: Record<string, boolean> = {};
+  c.members.forEach((m, i) => {
+    p[`1:0:${m.toLowerCase()}`] = paidIdx.includes(i);
+  });
+  return p;
 }
 
 function read<T>(key: string, fallback: T): T {

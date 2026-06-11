@@ -43,7 +43,7 @@ export default function JoinPage() {
     if (!c) return;
     setStatus("pending");
     try {
-      const me = address ?? (USING_MOCK ? MOCK_ME : null);
+      const me = USING_MOCK ? MOCK_ME : address;
       if (me && name.trim()) setAlias(me, name.trim());
       await joinCycle(id, c.currency);
       toast("Te uniste al ciclo ✓", "success");

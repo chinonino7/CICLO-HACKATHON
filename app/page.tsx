@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Wordmark } from "@/components/Wordmark";
 import { Button } from "@/components/Button";
 import { Avatar } from "@/components/Avatar";
@@ -9,7 +8,7 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { Stepper } from "@/components/Stepper";
 import { FAQ } from "@/components/FAQ";
 import { useMiniPay } from "@/hooks/useMiniPay";
-import { USING_MOCK } from "@/lib/mock";
+import { setMode } from "@/lib/mock";
 
 const STEPS = [
   {
@@ -84,14 +83,22 @@ function HeroCycleMock() {
 }
 
 export default function Onboarding() {
-  const router = useRouter();
   const { address, isMiniPay, isLoading } = useMiniPay();
 
   // Auto-redirect solo dentro de MiniPay; con otras wallets (Rabby, MetaMask)
   // se muestra la landing y el usuario entra con el botón.
   useEffect(() => {
-    if (address && isMiniPay) router.replace("/dashboard");
-  }, [address, isMiniPay, router]);
+    if (address && isMiniPay) {
+      setMode("real");
+      window.location.replace("/dashboard");
+    }
+  }, [address, isMiniPay]);
+
+  function enter(mode: "demo" | "real") {
+    setMode(mode);
+    // Recarga completa para que toda la app re-evalúe el modo.
+    window.location.href = "/dashboard";
+  }
 
   return (
     <main className="px-6 py-12 text-center">
@@ -107,14 +114,15 @@ export default function Onboarding() {
         <HeroCycleMock />
 
         <div className="mt-8 w-full space-y-3">
-          <Button full onClick={() => router.push("/dashboard")} disabled={isLoading && isMiniPay}>
+          <Button full onClick={() => enter("real")} disabled={isLoading && isMiniPay}>
             Conectar con MiniPay
           </Button>
-          {USING_MOCK && (
-            <Button full variant="outline" onClick={() => router.push("/dashboard")}>
-              Ver demo sin wallet
-            </Button>
-          )}
+          <Button full variant="outline" onClick={() => enter("demo")}>
+            Ver demo de la app
+          </Button>
+          <p className="text-xs text-muted">
+            El demo simula todo el flujo con datos de ejemplo, sin wallet ni dinero.
+          </p>
         </div>
       </section>
 
@@ -154,7 +162,6 @@ export default function Onboarding() {
 
       {/* Footer */}
       <footer className="mt-12 pb-4">
-        {USING_MOCK && <p className="text-xs text-bronze">modo demo · datos de ejemplo</p>}
         <p className="mt-2 text-xs leading-relaxed text-muted">
           Proyecto en fase experimental. Usa montos pequeños.
         </p>

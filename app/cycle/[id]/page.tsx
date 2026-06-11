@@ -51,7 +51,7 @@ export default function CycleRoom() {
   const [flashIdx, setFlashIdx] = useState<number | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
   const toast = useToast();
-  const me = (address ?? (USING_MOCK ? MOCK_ME : null))?.toLowerCase() ?? "";
+  const me = (USING_MOCK ? MOCK_ME : address)?.toLowerCase() ?? "";
 
   async function load() {
     const detail = await getCycleDetail(id);

@@ -10,7 +10,7 @@ import { useMiniPay } from "@/hooks/useMiniPay";
 import { getCycles, getBalance, hasPaidRound, type Cycle } from "@/lib/ciclo";
 import { money, turnRound } from "@/lib/format";
 import type { CurrencyKey } from "@/lib/tokens";
-import { USING_MOCK, MOCK_ME } from "@/lib/mock";
+import { USING_MOCK, MOCK_ME, setMode } from "@/lib/mock";
 
 export default function Dashboard() {
   const { address } = useMiniPay();
@@ -19,7 +19,10 @@ export default function Dashboard() {
   const [loadState, setLoadState] = useState<"loading" | "error" | "ok">("loading");
   const [balance, setBalance] = useState<number | null>(null);
   const [statuses, setStatuses] = useState<Record<number, CardStatus>>({});
-  const me = (address ?? (USING_MOCK ? MOCK_ME : null))?.toLowerCase();
+  // Gated por useEffect para no romper la hidratación (USING_MOCK lee localStorage).
+  const [demoMode, setDemoMode] = useState(false);
+  useEffect(() => setDemoMode(USING_MOCK), []);
+  const me = (USING_MOCK ? MOCK_ME : address)?.toLowerCase();
 
   async function loadCycles() {
     setLoadState("loading");
@@ -38,7 +41,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     (async () => {
-      const who = address ?? (USING_MOCK ? MOCK_ME : null);
+      const who = USING_MOCK ? MOCK_ME : address;
       if (!who) return;
       try {
         setBalance(await getBalance(who, currency));
@@ -80,6 +83,21 @@ export default function Dashboard() {
         <Wordmark size="sm" />
         <CurrencyToggle value={currency} onChange={setCurrency} />
       </header>
+
+      {demoMode && (
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-dashed border-bronze/60 bg-bronze/10 px-4 py-2.5">
+          <span className="text-xs text-bronze">Modo demo · datos de ejemplo</span>
+          <button
+            onClick={() => {
+              setMode("real");
+              window.location.reload();
+            }}
+            className="shrink-0 text-xs font-medium text-forest underline underline-offset-2"
+          >
+            Usar la app real
+          </button>
+        </div>
+      )}
 
       <section className="mt-6 animate-fade-up rounded-xl bg-forest px-5 py-6">
         <p className="text-xs uppercase tracking-widest text-cream/60">Saldo disponible</p>
