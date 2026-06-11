@@ -2,33 +2,41 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { Wordmark } from "@/components/Wordmark";
 import { Button } from "@/components/Button";
+import { useToast } from "@/components/Toast";
 import { useMiniPay } from "@/hooks/useMiniPay";
-import { getCycle, joinCycle, MAX_MEMBERS, type Cycle } from "@/lib/ciclo";
+import { getCycle, joinCycle, type Cycle } from "@/lib/ciclo";
+import { errorMessage } from "@/lib/errors";
 import { money, FREQUENCY_LABEL } from "@/lib/format";
 import { setAlias } from "@/lib/identity";
-import { USING_MOCK, mockCycles, MOCK_ME } from "@/lib/mock";
+import { USING_MOCK, MOCK_ME } from "@/lib/mock";
 
 export default function JoinPage() {
   const id = Number(useParams().id);
   const router = useRouter();
   const { address } = useMiniPay();
   const [c, setC] = useState<Cycle | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const [name, setName] = useState("");
   const [status, setStatus] = useState<"idle" | "pending" | "error">("idle");
+  const [errText, setErrText] = useState("");
+  const toast = useToast();
 
   useEffect(() => {
     (async () => {
       try {
-        setC(USING_MOCK ? mockCycles.find((m) => m.id === id) ?? null : await getCycle(id));
+        setC(await getCycle(id));
       } catch {
-        setC(mockCycles.find((m) => m.id === id) ?? null);
+        setC(null);
+      } finally {
+        setLoaded(true);
       }
     })();
   }, [id]);
 
-  const full = !!c && c.members.length >= MAX_MEMBERS;
+  const full = !!c && c.members.length >= c.size;
   const closed = !!c && c.started;
 
   async function handleJoin() {
@@ -37,9 +45,11 @@ export default function JoinPage() {
     try {
       const me = address ?? (USING_MOCK ? MOCK_ME : null);
       if (me && name.trim()) setAlias(me, name.trim());
-      if (!USING_MOCK) await joinCycle(id, c.currency);
+      await joinCycle(id, c.currency);
+      toast("Te uniste al ciclo ✓", "success");
       router.push(`/cycle/${id}`);
-    } catch {
+    } catch (e) {
+      setErrText(errorMessage(e));
       setStatus("error");
     }
   }
@@ -52,15 +62,24 @@ export default function JoinPage() {
         <p className="text-xs uppercase tracking-widest text-muted">Te invitaron a un ciclo</p>
 
         {!c ? (
-          <p className="mt-4 text-muted">Cargando ciclo…</p>
+          loaded ? (
+            <div className="mt-4">
+              <p className="text-ink">No encontramos ese ciclo.</p>
+              <Link href="/join" className="mt-2 inline-block text-sm text-forest">
+                Intentar con otro código
+              </Link>
+            </div>
+          ) : (
+            <p className="mt-4 text-muted">Cargando ciclo…</p>
+          )
         ) : (
           <>
-            <h1 className="mt-2 font-serif text-3xl text-ink">{c.name}</h1>
+            <h1 className="mt-2 font-display text-3xl text-ink">{c.name}</h1>
             <div className="mt-6 space-y-3 border-y border-line py-5 text-sm">
               <Row k="Aporte por turno" v={money(c.amount, c.currency)} />
               <Row k="Moneda" v={c.currency} />
               <Row k="Frecuencia" v={FREQUENCY_LABEL[c.frequency]} />
-              <Row k="Cupos" v={`${c.members.length}/${MAX_MEMBERS}`} />
+              <Row k="Cupos" v={`${c.members.length}/${c.size}`} />
             </div>
 
             <div className="mt-6">
@@ -79,13 +98,11 @@ export default function JoinPage() {
               ) : full ? (
                 <Button full disabled>Ciclo lleno</Button>
               ) : (
-                <Button full onClick={handleJoin} disabled={status === "pending"}>
-                  {status === "pending" ? "Uniéndote…" : "Unirme a este ciclo"}
+                <Button full onClick={handleJoin} loading={status === "pending"}>
+                  Unirme a este ciclo
                 </Button>
               )}
-              {status === "error" && (
-                <p className="mt-3 text-sm text-red-600">No se pudo unir. Intenta de nuevo.</p>
-              )}
+              {status === "error" && <p className="mt-3 text-sm text-claret">{errText}</p>}
             </div>
           </>
         )}

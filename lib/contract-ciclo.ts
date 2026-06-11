@@ -1,19 +1,51 @@
-// TODO: reemplazar tras desplegar Ciclo.sol a Celo Mainnet.
-export const CICLO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
+// Direcciones y ABIs. El factory se configura con NEXT_PUBLIC_FACTORY_ADDRESS
+// en .env.local (lo escribe `npm run deploy`); sin él la app corre en modo demo.
+export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
 
-export const CICLO_ABI = [
+export const FACTORY_ADDRESS = (process.env.NEXT_PUBLIC_FACTORY_ADDRESS ??
+  ZERO_ADDRESS) as `0x${string}`;
+
+export const FACTORY_ABI = [
   {
     type: "function",
-    name: "groupsCount",
+    name: "createCycle",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "name", type: "string" },
+      { name: "token", type: "address" },
+      { name: "amount", type: "uint256" },
+      { name: "frequency", type: "uint8" },
+      { name: "orderMode", type: "uint8" },
+      { name: "size", type: "uint8" },
+    ],
+    outputs: [
+      { name: "id", type: "uint256" },
+      { name: "addr", type: "address" },
+    ],
+  },
+  {
+    type: "function",
+    name: "cyclesCount",
     stateMutability: "view",
     inputs: [],
     outputs: [{ type: "uint256" }],
   },
   {
     type: "function",
-    name: "getGroup",
+    name: "cycles",
     stateMutability: "view",
     inputs: [{ name: "id", type: "uint256" }],
+    outputs: [{ type: "address" }],
+  },
+] as const;
+
+// ABI del contrato individual de cada ciclo.
+export const CICLO_ABI = [
+  {
+    type: "function",
+    name: "getInfo",
+    stateMutability: "view",
+    inputs: [],
     outputs: [
       {
         type: "tuple",
@@ -24,94 +56,73 @@ export const CICLO_ABI = [
           { name: "amount", type: "uint256" },
           { name: "frequency", type: "uint8" },
           { name: "orderMode", type: "uint8" },
+          { name: "size", type: "uint8" },
           { name: "round", type: "uint8" },
           { name: "roundStart", type: "uint64" },
           { name: "started", type: "bool" },
+          { name: "members", type: "address[]" },
+          { name: "payoutOrder", type: "uint8[]" },
         ],
       },
     ],
   },
   {
     type: "function",
-    name: "getMembers",
-    stateMutability: "view",
-    inputs: [{ name: "id", type: "uint256" }],
-    outputs: [{ type: "address[]" }],
-  },
-  {
-    type: "function",
-    name: "getPayoutOrder",
-    stateMutability: "view",
-    inputs: [{ name: "id", type: "uint256" }],
-    outputs: [{ type: "uint8[]" }],
-  },
-  {
-    type: "function",
     name: "hasPaid",
     stateMutability: "view",
     inputs: [
-      { name: "id", type: "uint256" },
-      { name: "round", type: "uint8" },
+      { name: "round_", type: "uint8" },
       { name: "member", type: "address" },
     ],
     outputs: [{ type: "bool" }],
   },
   {
     type: "function",
-    name: "currentBeneficiary",
+    name: "roundDeadline",
     stateMutability: "view",
-    inputs: [{ name: "id", type: "uint256" }],
-    outputs: [{ type: "address" }],
+    inputs: [],
+    outputs: [{ type: "uint256" }],
   },
   {
     type: "function",
-    name: "createGroup",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "name", type: "string" },
-      { name: "token", type: "address" },
-      { name: "amount", type: "uint256" },
-      { name: "frequency", type: "uint8" },
-      { name: "orderMode", type: "uint8" },
-    ],
-    outputs: [{ type: "uint256" }],
+    name: "currentBeneficiary",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "address" }],
   },
   {
     type: "function",
     name: "join",
     stateMutability: "nonpayable",
-    inputs: [{ name: "id", type: "uint256" }],
+    inputs: [],
     outputs: [],
   },
   {
     type: "function",
     name: "setOrder",
     stateMutability: "nonpayable",
-    inputs: [
-      { name: "id", type: "uint256" },
-      { name: "order", type: "uint8[]" },
-    ],
+    inputs: [{ name: "order", type: "uint8[]" }],
     outputs: [],
   },
   {
     type: "function",
     name: "start",
     stateMutability: "nonpayable",
-    inputs: [{ name: "id", type: "uint256" }],
+    inputs: [],
     outputs: [],
   },
   {
     type: "function",
     name: "contribute",
     stateMutability: "nonpayable",
-    inputs: [{ name: "id", type: "uint256" }],
+    inputs: [],
     outputs: [],
   },
   {
     type: "function",
     name: "claimPot",
     stateMutability: "nonpayable",
-    inputs: [{ name: "id", type: "uint256" }],
+    inputs: [],
     outputs: [],
   },
 ] as const;

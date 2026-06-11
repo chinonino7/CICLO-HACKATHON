@@ -2,54 +2,48 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Wordmark } from "@/components/Wordmark";
 import { CurrencyToggle } from "@/components/CurrencyToggle";
 import { CycleCard, type CardStatus } from "@/components/CycleCard";
+import { EmptyState } from "@/components/EmptyState";
 import { useMiniPay } from "@/hooks/useMiniPay";
 import { getCycles, getBalance, hasPaidRound, type Cycle } from "@/lib/ciclo";
 import { money, turnRound } from "@/lib/format";
 import type { CurrencyKey } from "@/lib/tokens";
-import { USING_MOCK, mockCycles, mockDetails, MOCK_ME } from "@/lib/mock";
+import { USING_MOCK, MOCK_ME } from "@/lib/mock";
 
 export default function Dashboard() {
-  const router = useRouter();
   const { address } = useMiniPay();
   const [currency, setCurrency] = useState<CurrencyKey>("cUSD");
   const [cycles, setCycles] = useState<Cycle[]>([]);
+  const [loadState, setLoadState] = useState<"loading" | "error" | "ok">("loading");
   const [balance, setBalance] = useState<number | null>(null);
   const [statuses, setStatuses] = useState<Record<number, CardStatus>>({});
   const me = (address ?? (USING_MOCK ? MOCK_ME : null))?.toLowerCase();
 
-  function joinByLink() {
-    const input = window.prompt("Pega el link o el código del ciclo:");
-    if (!input) return;
-    const match = input.match(/cycle\/(\d+)/) ?? input.match(/^\s*(\d+)\s*$/);
-    if (match) router.push(`/cycle/${match[1]}/join`);
-    else window.alert("No reconocí ese link o código.");
+  async function loadCycles() {
+    setLoadState("loading");
+    try {
+      setCycles(await getCycles());
+      setLoadState("ok");
+    } catch {
+      setCycles([]);
+      setLoadState("error");
+    }
   }
 
   useEffect(() => {
-    (async () => {
-      try {
-        setCycles(USING_MOCK ? mockCycles : await getCycles());
-      } catch {
-        setCycles(mockCycles);
-      }
-    })();
+    loadCycles();
   }, []);
 
   useEffect(() => {
     (async () => {
-      if (USING_MOCK) {
-        setBalance(currency === "cUSD" ? 42.5 : 180000);
-        return;
-      }
-      if (!address) return;
+      const who = address ?? (USING_MOCK ? MOCK_ME : null);
+      if (!who) return;
       try {
-        setBalance(await getBalance(address, currency));
+        setBalance(await getBalance(who, currency));
       } catch {
-        setBalance(0);
+        setBalance(null); // "—": un fallo de red no es lo mismo que saldo 0
       }
     })();
   }, [address, currency]);
@@ -71,9 +65,7 @@ export default function Dashboard() {
           out[c.id] = "receive";
           continue;
         }
-        const paid = USING_MOCK
-          ? !!mockDetails[c.id]?.paidThisRound[me]
-          : await hasPaidRound(c.id, c.round, me as `0x${string}`);
+        const paid = await hasPaidRound(c.id, c.round, me as `0x${string}`);
         out[c.id] = paid ? "ok" : "pay";
       }
       setStatuses(out);
@@ -89,9 +81,9 @@ export default function Dashboard() {
         <CurrencyToggle value={currency} onChange={setCurrency} />
       </header>
 
-      <section className="mt-8 border-b border-line pb-8">
-        <p className="text-xs uppercase tracking-widest text-muted">Saldo disponible</p>
-        <p className="mt-2 font-serif text-4xl text-forest">
+      <section className="mt-6 animate-fade-up rounded-xl bg-forest px-5 py-6">
+        <p className="text-xs uppercase tracking-widest text-cream/60">Saldo disponible</p>
+        <p className="mt-2 font-display text-4xl text-cream">
           {balance === null ? "—" : money(balance, currency)}
         </p>
       </section>
@@ -104,41 +96,50 @@ export default function Dashboard() {
       )}
 
       <section className="mt-8">
-        <h2 className="font-serif text-xl text-ink">Mis ciclos</h2>
+        <h2 className="font-display text-xl text-ink">Mis ciclos</h2>
         <div className="mt-1">
-          {mine.length === 0 ? (
-            <EmptyState />
+          {loadState === "loading" ? (
+            <div className="mt-4 space-y-3">
+              <div className="h-24 animate-pulse rounded-lg bg-line/60" />
+              <div className="h-24 animate-pulse rounded-lg bg-line/60" />
+            </div>
+          ) : loadState === "error" ? (
+            <div className="mt-4 rounded-lg border border-claret/40 bg-claret/5 px-4 py-4">
+              <p className="text-sm font-medium text-claret">No pudimos cargar tus ciclos</p>
+              <p className="mt-1 text-sm text-muted">Revisa tu conexión e intenta de nuevo.</p>
+              <button
+                onClick={loadCycles}
+                className="mt-3 rounded-lg border border-claret/40 px-4 py-2 text-sm font-medium text-claret"
+              >
+                Reintentar
+              </button>
+            </div>
+          ) : mine.length === 0 ? (
+            <EmptyState
+              title="Aún no tienes ciclos"
+              body="Crea tu primer ahorro rotativo comunitario o únete a uno con el link de un amigo."
+              cta={{ label: "Crear tu primer ciclo", href: "/create" }}
+            />
           ) : (
-            mine.map((c) => <CycleCard key={c.id} c={c} status={statuses[c.id]} />)
+            mine.map((c, i) => (
+              <div key={c.id} className="animate-fade-up" style={{ animationDelay: `${i * 60}ms` }}>
+                <CycleCard c={c} status={statuses[c.id]} />
+              </div>
+            ))
           )}
         </div>
       </section>
 
       <nav className="fixed bottom-0 left-1/2 z-10 w-full max-w-[420px] -translate-x-1/2 border-t border-line bg-cream px-6 py-3">
         <div className="flex gap-3">
-          <Link href="/create" className="flex-1 rounded-lg bg-forest py-3 text-center text-sm font-medium text-cream active:opacity-80">
+          <Link href="/create" className="flex-1 rounded-lg bg-forest py-3 text-center text-sm font-medium text-cream transition active:scale-[0.98] active:opacity-80">
             Crear un Ciclo
           </Link>
-          <button onClick={joinByLink} className="flex-1 rounded-lg border border-bronze py-3 text-center text-sm font-medium text-forest active:opacity-80">
+          <Link href="/join" className="flex-1 rounded-lg border border-bronze py-3 text-center text-sm font-medium text-forest transition active:scale-[0.98] active:opacity-80">
             Unirse
-          </button>
+          </Link>
         </div>
       </nav>
     </main>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="mt-4 rounded-lg border border-dashed border-line px-6 py-10 text-center">
-      <div className="mx-auto mb-3 h-px w-10 bg-bronze" />
-      <p className="font-serif text-lg text-ink">Aún no tienes ciclos</p>
-      <p className="mx-auto mt-1.5 max-w-[15rem] text-sm text-muted">
-        Crea tu primera natillera o únete a una con el link de un amigo.
-      </p>
-      <Link href="/create" className="mt-5 inline-block rounded-lg bg-forest px-5 py-2.5 text-sm font-medium text-cream">
-        Crear tu primer ciclo
-      </Link>
-    </div>
   );
 }

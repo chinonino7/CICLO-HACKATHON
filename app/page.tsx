@@ -4,8 +4,84 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Wordmark } from "@/components/Wordmark";
 import { Button } from "@/components/Button";
+import { Avatar } from "@/components/Avatar";
+import { ProgressBar } from "@/components/ProgressBar";
+import { Stepper } from "@/components/Stepper";
+import { FAQ } from "@/components/FAQ";
 import { useMiniPay } from "@/hooks/useMiniPay";
 import { USING_MOCK } from "@/lib/mock";
+
+const STEPS = [
+  {
+    title: "Crea o únete a un ciclo",
+    body: "Arma el grupo con tu gente de confianza y comparte el link de invitación.",
+  },
+  {
+    title: "Todos aportan lo mismo",
+    body: "Un monto fijo cada quincena o cada mes, directo desde MiniPay.",
+  },
+  {
+    title: "Cada ronda alguien recibe el pozo",
+    body: "El turno rota: una persona recibe el total acumulado de los aportes.",
+  },
+  {
+    title: "El ciclo se completa",
+    body: "Termina cuando todos recibieron. Pueden empezar uno nuevo cuando quieran.",
+  },
+];
+
+const FAQS = [
+  {
+    q: "¿Qué es un ciclo?",
+    a: "Es un ahorro rotativo (cadena, tanda, natillera): un grupo aporta un monto fijo cada periodo y, por turnos, cada miembro recibe el pozo completo.",
+  },
+  {
+    q: "¿Dónde está mi dinero?",
+    a: "En un contrato inteligente en la red Celo. Nadie —ni siquiera el administrador del ciclo— puede tocarlo fuera de las reglas del ciclo.",
+  },
+  {
+    q: "¿Qué necesito para usar CICLO?",
+    a: "Solo MiniPay. Sin frase semilla complicada ni comisiones de gas en CELO.",
+  },
+  {
+    q: "¿Qué pasa si alguien no paga?",
+    a: "El ciclo se pausa hasta completar los aportes y todos los miembros lo ven en tiempo real. La transparencia es la garantía.",
+  },
+  {
+    q: "¿Cuánto cuesta?",
+    a: "CICLO no cobra comisión. Cada transacción en Celo cuesta una fracción de centavo (~$0.001).",
+  },
+];
+
+/** Tarjeta estática que simula un ciclo en progreso (solo visual, datos fijos). */
+function HeroCycleMock() {
+  const members = ["María", "Carlos", "Luisa", "Andrés", "Paola"];
+  return (
+    <div className="mt-8 w-full rounded-xl border border-line bg-white p-5 text-left shadow-sm">
+      <div className="flex items-center justify-between">
+        <p className="font-display text-sm font-semibold text-ink">Ahorro de la cuadra</p>
+        <span className="rounded-full bg-bronze/15 px-2.5 py-0.5 text-xs text-bronze">
+          Ronda 3 de 5
+        </span>
+      </div>
+      <p className="mt-3 font-display text-2xl font-semibold text-forest">250.000 COPm</p>
+      <p className="text-xs text-muted">en el pozo · recibe María</p>
+      <div className="mt-4">
+        <ProgressBar pct={60} />
+      </div>
+      <div className="mt-4 flex items-center justify-between">
+        <div className="flex -space-x-2">
+          {members.map((m) => (
+            <span key={m} className="rounded-full ring-2 ring-white">
+              <Avatar name={m} size={28} />
+            </span>
+          ))}
+        </div>
+        <span className="text-xs text-muted">5 miembros</span>
+      </div>
+    </div>
+  );
+}
 
 export default function Onboarding() {
   const router = useRouter();
@@ -17,46 +93,71 @@ export default function Onboarding() {
   }, [address, router]);
 
   return (
-    <main className="flex min-h-[100dvh] flex-col items-center justify-between px-6 py-16 text-center">
-      <div className="flex flex-1 flex-col items-center justify-center">
+    <main className="px-6 py-12 text-center">
+      {/* Hero */}
+      <section className="flex flex-col items-center">
         <Wordmark size="lg" />
-        <p className="mt-5 max-w-[16rem] font-serif text-lg leading-relaxed text-muted">
+        <p className="mt-5 max-w-[18rem] font-display text-lg leading-relaxed text-muted">
           Ahorro comunitario, en confianza.
         </p>
-        <div className="mt-6 h-px w-12 bg-bronze" />
-        <p className="mt-6 max-w-[18rem] text-sm leading-relaxed text-muted">
-          Digitaliza tu natillera o cadena de ahorro. Aportes y turnos claros, sin
-          intermediarios.
+        <p className="mt-3 max-w-[19rem] text-sm leading-relaxed text-muted">
+          Digitaliza tu ahorro rotativo. Aportes y turnos claros, sin intermediarios.
         </p>
+        <HeroCycleMock />
 
-        <ol className="mt-8 w-full max-w-[18rem] space-y-3 text-left">
-          {[
-            "Todos aportan el mismo monto cada periodo.",
-            "Cada ronda, un miembro recibe el pozo completo.",
-            "El ciclo termina cuando todos han recibido.",
-          ].map((t, i) => (
-            <li key={i} className="flex items-start gap-3">
-              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-bronze text-xs text-bronze">
-                {i + 1}
-              </span>
-              <span className="text-sm leading-relaxed text-ink">{t}</span>
-            </li>
-          ))}
-        </ol>
-      </div>
+        <div className="mt-8 w-full space-y-3">
+          <Button full onClick={() => router.push("/dashboard")} disabled={isLoading && isMiniPay}>
+            Conectar con MiniPay
+          </Button>
+          {USING_MOCK && (
+            <Button full variant="outline" onClick={() => router.push("/dashboard")}>
+              Ver demo sin wallet
+            </Button>
+          )}
+        </div>
+      </section>
 
-      <div className="w-full">
-        <Button
-          full
-          onClick={() => router.push("/dashboard")}
-          disabled={isLoading && isMiniPay}
+      {/* Cómo funciona */}
+      <section className="mt-14">
+        <h2 className="font-display text-base font-semibold text-ink">¿Cómo funciona?</h2>
+        <div className="mx-auto mt-2 h-px w-12 bg-bronze" />
+        <div className="mt-7">
+          <Stepper steps={STEPS} />
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="mt-14">
+        <h2 className="font-display text-base font-semibold text-ink">Preguntas frecuentes</h2>
+        <div className="mx-auto mt-2 h-px w-12 bg-bronze" />
+        <div className="mt-7">
+          <FAQ items={FAQS} />
+        </div>
+      </section>
+
+      {/* MiniPay */}
+      <section className="mt-14 rounded-xl border border-line bg-white p-5">
+        <p className="font-display text-sm font-semibold text-ink">Corre dentro de MiniPay</p>
+        <p className="mt-2 text-sm leading-relaxed text-muted">
+          CICLO vive en MiniPay: te registras con tu número de teléfono, sin frase semilla.
+        </p>
+        <a
+          href="https://www.minipay.to"
+          target="_blank"
+          rel="noreferrer"
+          className="mt-3 inline-block text-sm font-medium text-forest underline underline-offset-4"
         >
-          Conectar con MiniPay
-        </Button>
-        {USING_MOCK && (
-          <p className="mt-3 text-xs text-bronze">modo demo · datos de ejemplo</p>
-        )}
-      </div>
+          Conseguir MiniPay →
+        </a>
+      </section>
+
+      {/* Footer */}
+      <footer className="mt-12 pb-4">
+        {USING_MOCK && <p className="text-xs text-bronze">modo demo · datos de ejemplo</p>}
+        <p className="mt-2 text-xs leading-relaxed text-muted">
+          Proyecto en fase experimental. Usa montos pequeños.
+        </p>
+      </footer>
     </main>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createWalletClient, custom } from "viem";
-import { celo } from "viem/chains";
+import { CHAIN } from "@/lib/chain";
 
 export function useMiniPay() {
   const [address, setAddress] = useState<`0x${string}` | null>(null);
@@ -20,7 +20,7 @@ export function useMiniPay() {
       setIsMiniPay(mp);
 
       try {
-        const client = createWalletClient({ chain: celo, transport: custom(eth) });
+        const client = createWalletClient({ chain: CHAIN, transport: custom(eth) });
         // Dentro de MiniPay no hace falta boton: auto-connect.
         const [addr] = await client.getAddresses();
         if (addr) setAddress(addr);

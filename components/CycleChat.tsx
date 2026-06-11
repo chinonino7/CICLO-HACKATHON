@@ -7,7 +7,17 @@ type Msg = { author: string; text: string; ts: number };
 
 // MVP: chat local (localStorage) por ciclo. En producción usar XMTP o un backend
 // para mensajería real multi-dispositivo.
-export function CycleChat({ cycleId, me, seed }: { cycleId: number; me: string; seed?: Msg[] }) {
+export function CycleChat({
+  cycleId,
+  me,
+  seed,
+  nameOf,
+}: {
+  cycleId: number;
+  me: string;
+  seed?: Msg[];
+  nameOf?: (addr: string) => string;
+}) {
   const key = `ciclo-chat-${cycleId}`;
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState("");
@@ -54,7 +64,7 @@ export function CycleChat({ cycleId, me, seed }: { cycleId: number; me: string; 
             return (
               <div key={i} className={`flex flex-col ${mine ? "items-end" : "items-start"}`}>
                 <span className="text-[10px] text-muted">
-                  {mine ? "Tú" : shortAddr(m.author)}
+                  {mine ? "Tú" : nameOf ? nameOf(m.author) : shortAddr(m.author)}
                 </span>
                 <span
                   className={`mt-0.5 max-w-[75%] rounded-lg px-3 py-1.5 text-sm ${

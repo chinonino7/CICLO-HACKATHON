@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import type { Cycle } from "@/lib/ciclo";
-import { MAX_MEMBERS } from "@/lib/ciclo";
 import { money, FREQUENCY_LABEL } from "@/lib/format";
 import { ProgressBar } from "./ProgressBar";
 
@@ -17,13 +16,13 @@ const BADGE: Record<Exclude<CardStatus, null>, { text: string; cls: string }> = 
 
 export function CycleCard({ c, status }: { c: Cycle; status?: CardStatus }) {
   const filled = c.members.length;
-  const pct = (filled / MAX_MEMBERS) * 100;
+  const pct = (filled / c.size) * 100;
   const badge = status ? BADGE[status] : null;
 
   return (
-    <Link href={`/cycle/${c.id}`} className="block border-b border-line py-4 active:opacity-70">
+    <Link href={`/cycle/${c.id}`} className="block border-b border-line py-4 transition active:scale-[0.99] active:opacity-70">
       <div className="flex items-baseline justify-between gap-2">
-        <h3 className="font-serif text-lg text-ink">{c.name}</h3>
+        <h3 className="font-display text-lg text-ink">{c.name}</h3>
         {badge ? (
           <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${badge.cls}`}>
             {badge.text}
@@ -40,7 +39,7 @@ export function CycleCard({ c, status }: { c: Cycle; status?: CardStatus }) {
       <div className="mt-3 flex items-center gap-3">
         <ProgressBar pct={pct} />
         <span className="shrink-0 text-xs tabular-nums text-muted">
-          {filled}/{MAX_MEMBERS}
+          {filled}/{c.size}
         </span>
       </div>
 

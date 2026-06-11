@@ -1,11 +1,12 @@
 import type { Metadata, Viewport } from "next";
-import { Playfair_Display, Inter } from "next/font/google";
+import { Poppins, Inter } from "next/font/google";
 import "./globals.css";
+import { ToastProvider } from "@/components/Toast";
 
-const playfair = Playfair_Display({
+const poppins = Poppins({
   subsets: ["latin"],
   weight: ["500", "600", "700"],
-  variable: "--font-playfair",
+  variable: "--font-display",
   display: "swap",
 });
 
@@ -17,7 +18,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "CICLO — Ahorro comunitario",
-  description: "Ahorro rotativo (natillera) digital en MiniPay. Soporta cUSD y cCOP.",
+  description: "Ahorro rotativo comunitario digital en MiniPay. Soporta cUSD y COPm.",
 };
 
 export const viewport: Viewport = {
@@ -28,9 +29,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={`${playfair.variable} ${inter.variable}`}>
+    <html lang="es" className={`${poppins.variable} ${inter.variable}`}>
       <body className="font-sans">
-        <div className="frame">{children}</div>
+        <ToastProvider>
+          <div className="frame">{children}</div>
+        </ToastProvider>
       </body>
     </html>
   );
