@@ -87,10 +87,11 @@ export default function Onboarding() {
   const router = useRouter();
   const { address, isMiniPay, isLoading } = useMiniPay();
 
-  // Auto-redirect dentro de MiniPay (wallet inyectada, sin botón).
+  // Auto-redirect solo dentro de MiniPay; con otras wallets (Rabby, MetaMask)
+  // se muestra la landing y el usuario entra con el botón.
   useEffect(() => {
-    if (address) router.replace("/dashboard");
-  }, [address, router]);
+    if (address && isMiniPay) router.replace("/dashboard");
+  }, [address, isMiniPay, router]);
 
   return (
     <main className="px-6 py-12 text-center">
