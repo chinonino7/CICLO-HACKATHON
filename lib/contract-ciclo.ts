@@ -2,8 +2,8 @@
 // en .env.local (lo escribe `npm run deploy`); sin él la app corre en modo demo.
 export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
 
-export const FACTORY_ADDRESS = (process.env.NEXT_PUBLIC_FACTORY_ADDRESS ??
-  ZERO_ADDRESS) as `0x${string}`;
+// .trim(): valores de env pueden traer \r o espacios invisibles (CRLF de Windows).
+export const FACTORY_ADDRESS = (process.env.NEXT_PUBLIC_FACTORY_ADDRESS ?? ZERO_ADDRESS).trim() as `0x${string}`;
 
 export const FACTORY_ABI = [
   {
