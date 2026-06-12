@@ -17,6 +17,7 @@ import {
   getCycleDetail,
   contribute,
   claimPot,
+  cancelCycle,
   setOrder,
   startCycle,
   getBalance,
@@ -225,6 +226,23 @@ export default function CycleRoom() {
     }
   }
 
+  async function handleCancel() {
+    const msg = c!.started
+      ? "¿Cancelar este ciclo? Los aportes de la ronda en curso se devolverán a quienes ya pagaron."
+      : "¿Cancelar este ciclo? Aún no hay depósitos; solo se cerrará.";
+    if (!window.confirm(msg)) return;
+    setBusy(true);
+    try {
+      await cancelCycle(id, c!.currency);
+      toast("Ciclo cancelado ✓", "success");
+      await load();
+    } catch (e) {
+      toast(errorMessage(e), "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function demo(fn: (id: number) => void) {
     fn(id);
     await load();
@@ -283,9 +301,9 @@ export default function CycleRoom() {
         <RotationWheel
           members={wheelMembers}
           potLabel={money(pot, c.currency)}
-          subLabel={c.started ? `Ronda ${c.round + 1} de ${n}` : "Por iniciar"}
+          subLabel={c.cancelled ? "Cancelado" : c.started ? `Ronda ${c.round + 1} de ${n}` : "Por iniciar"}
           progress={c.started ? c.round / n : 0}
-          legend={orderUnknown ? "El orden se sortea al iniciar" : undefined}
+          legend={orderUnknown && !c.cancelled ? "El orden se sortea al iniciar" : undefined}
         />
         {c.started && (
           <div className="mt-3 flex items-center justify-center gap-1.5">
@@ -305,7 +323,7 @@ export default function CycleRoom() {
         )}
         <div className="mt-4 flex items-center justify-between gap-3">
           <p className="shrink-0 text-sm tabular-nums text-muted">{fundedCount}/{n} aportes</p>
-          {c.started && <DeadlineChip deadline={deadlineMs(c.roundStart, c.frequency)} />}
+          {c.started && !c.cancelled && <DeadlineChip deadline={deadlineMs(c.roundStart, c.frequency)} />}
         </div>
         <div className="mt-3">
           <ProgressBar pct={(fundedCount / n) * 100} />
@@ -354,8 +372,19 @@ export default function CycleRoom() {
         </div>
       )}
 
+      {/* Ciclo cancelado */}
+      {c.cancelled && (
+        <div className="mt-5 rounded-lg border border-claret/40 bg-claret/5 px-4 py-3">
+          <p className="text-sm font-medium text-claret">Ciclo cancelado</p>
+          <p className="mt-1 text-sm text-muted">
+            El organizador canceló este ciclo.
+            {c.started ? " Los aportes de la ronda en curso fueron devueltos." : ""}
+          </p>
+        </div>
+      )}
+
       {/* Bloqueo por impago */}
-      {c.started && !fullyFunded && (
+      {c.started && !c.cancelled && !fullyFunded && (
         <div className="mt-5 rounded-lg border border-bronze/60 bg-bronze/10 px-4 py-3">
           <p className="text-sm font-medium text-ink">El ciclo no puede continuar</p>
           <p className="mt-1 text-sm text-muted">
@@ -400,6 +429,7 @@ export default function CycleRoom() {
       </details>
 
       {/* Acción contextual */}
+      {!c.cancelled && (
       <div className="mt-8">
         {!c.started ? (
           isAdmin ? (
@@ -470,9 +500,21 @@ export default function CycleRoom() {
           </div>
         )}
       </div>
+      )}
+
+      {/* Cancelar (solo admin): antes de iniciar, o con la ronda incompleta */}
+      {isAdmin && !c.cancelled && (!c.started || !fullyFunded) && (
+        <button
+          onClick={handleCancel}
+          disabled={busy}
+          className="mt-4 w-full text-center text-xs font-medium text-claret underline underline-offset-2 disabled:opacity-40"
+        >
+          {c.started ? "Cancelar ciclo y devolver los aportes de esta ronda" : "Cancelar ciclo"}
+        </button>
+      )}
 
       {/* Controles de demo (solo modo demo) */}
-      {USING_MOCK && (
+      {USING_MOCK && !c.cancelled && (
         <section className="mt-6 rounded-lg border border-dashed border-line p-3">
           <p className="mb-2 text-[11px] uppercase tracking-widest text-bronze">Modo demo</p>
           <div className="flex flex-wrap gap-2">

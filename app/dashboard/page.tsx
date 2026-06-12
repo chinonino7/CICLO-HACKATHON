@@ -63,6 +63,7 @@ export default function Dashboard() {
     (async () => {
       const out: Record<number, CardStatus> = {};
       for (const c of mine) {
+        if (c.cancelled) continue; // la card muestra "Cancelado" por sí misma
         if (!c.started) {
           out[c.id] = "start";
           continue;

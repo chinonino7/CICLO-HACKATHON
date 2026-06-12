@@ -38,6 +38,7 @@ export default function JoinPage() {
 
   const full = !!c && c.members.length >= c.size;
   const closed = !!c && c.started;
+  const cancelled = !!c && c.cancelled;
 
   async function handleJoin() {
     if (!c) return;
@@ -93,7 +94,9 @@ export default function JoinPage() {
             </div>
 
             <div className="mt-8">
-              {closed ? (
+              {cancelled ? (
+                <Button full disabled>Este ciclo fue cancelado</Button>
+              ) : closed ? (
                 <Button full disabled>El ciclo ya inició</Button>
               ) : full ? (
                 <Button full disabled>Ciclo lleno</Button>

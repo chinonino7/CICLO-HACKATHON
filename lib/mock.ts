@@ -1,16 +1,16 @@
 // Modo demo vs real. Los datos demo viven en lib/mockstore.ts (localStorage).
-import { FACTORY_ADDRESS, ZERO_ADDRESS } from "./contract-ciclo";
+import { CICLO_ADDRESS, ZERO_ADDRESS } from "./contract-ciclo";
 
-/** Hay contratos configurados (factory desplegado). */
-export const HAS_FACTORY = FACTORY_ADDRESS !== ZERO_ADDRESS;
+/** Hay contrato configurado (registro Ciclo desplegado). */
+export const HAS_CONTRACT = CICLO_ADDRESS !== ZERO_ADDRESS;
 
 const MODE_KEY = "ciclo-mode";
 
-// Demo si el usuario lo eligió en la landing, o forzado si no hay factory.
+// Demo si el usuario lo eligió en la landing, o forzado si no hay contrato.
 // Se evalúa al cargar la página: los cambios de modo navegan con recarga
 // completa (window.location) para re-evaluar esta constante.
 export const USING_MOCK =
-  !HAS_FACTORY ||
+  !HAS_CONTRACT ||
   (typeof window !== "undefined" && window.localStorage.getItem(MODE_KEY) === "demo");
 
 export function setMode(mode: "demo" | "real") {

@@ -28,6 +28,7 @@ function seedCycles(): Cycle[] {
       round: 0,
       roundStart: 0,
       started: false,
+      cancelled: false,
       members: [addr(9), MOCK_ME, addr(7)],
       payoutOrder: [],
     },
@@ -44,6 +45,7 @@ function seedCycles(): Cycle[] {
       round: 0,
       roundStart: Math.floor(Date.now() / 1000) - 2 * 86400,
       started: true,
+      cancelled: false,
       members: [MOCK_ME, addr(2), addr(3), addr(4), addr(5)],
       payoutOrder: [2, 0, 4, 1, 3],
     },
@@ -147,6 +149,7 @@ export function mockCreate(f: {
     round: 0,
     roundStart: 0,
     started: false,
+    cancelled: false,
     members: [MOCK_ME],
     payoutOrder: [],
   });
@@ -204,6 +207,20 @@ export function mockSimulateOthersPaid(id: number) {
     p[`${id}:${c.round}:${m.toLowerCase()}`] = true;
   });
   write(PKEY, p);
+}
+
+/** Cancela el ciclo: limpia los aportes de la ronda en curso (devolución simulada). */
+export function mockCancel(id: number) {
+  const c = mockGetCycle(id);
+  if (!c) return;
+  const p = paid();
+  c.members.forEach((m) => {
+    delete p[`${id}:${c.round}:${m.toLowerCase()}`];
+  });
+  write(PKEY, p);
+  mutate(id, (g) => {
+    g.cancelled = true;
+  });
 }
 
 /** Demo: retrocede el inicio de la ronda para que la fecha de pago ya haya llegado. */

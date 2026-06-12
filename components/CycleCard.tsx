@@ -14,10 +14,12 @@ const BADGE: Record<Exclude<CardStatus, null>, { text: string; cls: string }> = 
   start: { text: "Por iniciar", cls: "text-muted border border-line" },
 };
 
+const CANCELLED_BADGE = { text: "Cancelado", cls: "text-claret border border-claret/40" };
+
 export function CycleCard({ c, status }: { c: Cycle; status?: CardStatus }) {
   const filled = c.members.length;
   const pct = (filled / c.size) * 100;
-  const badge = status ? BADGE[status] : null;
+  const badge = c.cancelled ? CANCELLED_BADGE : status ? BADGE[status] : null;
 
   return (
     <Link href={`/cycle/${c.id}`} className="block border-b border-line py-4 transition active:scale-[0.99] active:opacity-70">
@@ -44,7 +46,11 @@ export function CycleCard({ c, status }: { c: Cycle; status?: CardStatus }) {
       </div>
 
       <p className="mt-2 text-xs text-muted">
-        {c.started ? `Ronda ${c.round + 1} de ${c.members.length}` : "Aún no inicia"}
+        {c.cancelled
+          ? "Ciclo cancelado"
+          : c.started
+            ? `Ronda ${c.round + 1} de ${c.members.length}`
+            : "Aún no inicia"}
       </p>
     </Link>
   );

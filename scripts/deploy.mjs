@@ -1,4 +1,5 @@
-// Compila los contratos con solc y despliega CicloFactory en Celo Sepolia testnet.
+// Compila y despliega el registro Ciclo (un solo contrato custodia todos los
+// ciclos) en Celo Sepolia testnet.
 // Uso: npm run compile  (solo compila)
 //      npm run deploy   (compila + despliega + actualiza .env.local)
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
@@ -15,7 +16,6 @@ const input = {
   language: "Solidity",
   sources: {
     "Ciclo.sol": { content: readFileSync("contracts/Ciclo.sol", "utf8") },
-    "CicloFactory.sol": { content: readFileSync("contracts/CicloFactory.sol", "utf8") },
   },
   settings: {
     optimizer: { enabled: true, runs: 200 },
@@ -31,11 +31,9 @@ if (errors.length) {
   process.exit(1);
 }
 
-const factory = out.contracts["CicloFactory.sol"].CicloFactory;
 const ciclo = out.contracts["Ciclo.sol"].Ciclo;
-console.log("✔ Contratos compilados sin errores");
-console.log(`  CicloFactory: ${factory.evm.bytecode.object.length / 2} bytes`);
-console.log(`  Ciclo:        ${ciclo.evm.bytecode.object.length / 2} bytes`);
+console.log("✔ Contrato compilado sin errores");
+console.log(`  Ciclo (registro): ${ciclo.evm.bytecode.object.length / 2} bytes`);
 
 if (COMPILE_ONLY) process.exit(0);
 
@@ -59,14 +57,14 @@ if (balance === 0n) {
   process.exit(1);
 }
 
-console.log("Desplegando CicloFactory en Celo Sepolia…");
+console.log("Desplegando Ciclo (registro) en Celo Sepolia…");
 const hash = await walletClient.deployContract({
-  abi: factory.abi,
-  bytecode: `0x${factory.evm.bytecode.object}`,
+  abi: ciclo.abi,
+  bytecode: `0x${ciclo.evm.bytecode.object}`,
 });
 const receipt = await publicClient.waitForTransactionReceipt({ hash });
 const addr = receipt.contractAddress;
-console.log(`✔ CicloFactory desplegado: ${addr}`);
+console.log(`✔ Ciclo desplegado: ${addr}`);
 console.log(`  Tx: https://sepolia.celoscan.io/tx/${hash}`);
 console.log(`  Contrato: https://sepolia.celoscan.io/address/${addr}`);
 
@@ -78,8 +76,8 @@ function setVar(content, key, value) {
 }
 
 let next = env;
-next = setVar(next, "NEXT_PUBLIC_FACTORY_ADDRESS", addr);
+next = setVar(next, "NEXT_PUBLIC_CICLO_ADDRESS", addr);
 next = setVar(next, "NEXT_PUBLIC_NETWORK", "sepolia");
 writeFileSync(ENV, next);
-console.log("✔ .env.local actualizado (NEXT_PUBLIC_FACTORY_ADDRESS, NEXT_PUBLIC_NETWORK).");
+console.log("✔ .env.local actualizado (NEXT_PUBLIC_CICLO_ADDRESS, NEXT_PUBLIC_NETWORK).");
 console.log("  Reinicia el servidor (npm run build / npm run dev) para aplicar.");

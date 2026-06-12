@@ -8,7 +8,7 @@ import {
   formatUnits,
 } from "viem";
 import { CHAIN, NETWORK } from "./chain";
-import { FACTORY_ABI, FACTORY_ADDRESS, CICLO_ABI, ERC20_ABI } from "./contract-ciclo";
+import { CICLO_ABI, CICLO_ADDRESS, ERC20_ABI } from "./contract-ciclo";
 import { CURRENCIES, currencyByAddress, type CurrencyKey } from "./tokens";
 import { USING_MOCK, MOCK_ME } from "./mock";
 import * as store from "./mockstore";
@@ -30,6 +30,7 @@ export type Cycle = {
   round: number;
   roundStart: number; // timestamp en segundos (0 si no ha iniciado)
   started: boolean;
+  cancelled: boolean;
   members: `0x${string}`[];
   payoutOrder: number[];
 };
@@ -52,6 +53,12 @@ function walletClient() {
   return createWalletClient({ chain: CHAIN, transport: custom((window as any).ethereum) });
 }
 
+/** feeCurrency (CIP-64) solo dentro de MiniPay; MetaMask/Rabby pagan gas en CELO. */
+function feeOpts(currency: CurrencyKey) {
+  const isMiniPay = typeof window !== "undefined" && (window as any).ethereum?.isMiniPay;
+  return isMiniPay ? { feeCurrency: CURRENCIES[currency].feeCurrency } : {};
+}
+
 /** Asegura que la wallet esté en la red correcta antes de firmar (Rabby/MetaMask). */
 async function ensureChain(client: ReturnType<typeof walletClient>) {
   const current = await client.getChainId();
@@ -65,29 +72,6 @@ async function ensureChain(client: ReturnType<typeof walletClient>) {
   }
 }
 
-/** feeCurrency (CIP-64) solo dentro de MiniPay; MetaMask paga gas en CELO. */
-function feeOpts(currency: CurrencyKey) {
-  const isMiniPay = typeof window !== "undefined" && (window as any).ethereum?.isMiniPay;
-  return isMiniPay ? { feeCurrency: CURRENCIES[currency].feeCurrency } : {};
-}
-
-// Cada ciclo es su propio contrato; el factory mapea id (índice) → dirección.
-// Las direcciones son inmutables: caché de módulo.
-const addrCache = new Map<number, `0x${string}`>();
-
-async function cycleAddress(id: number): Promise<`0x${string}`> {
-  const cached = addrCache.get(id);
-  if (cached) return cached;
-  const addr = (await publicClient.readContract({
-    address: FACTORY_ADDRESS,
-    abi: FACTORY_ABI,
-    functionName: "cycles",
-    args: [BigInt(id)],
-  })) as `0x${string}`;
-  addrCache.set(id, addr);
-  return addr;
-}
-
 type Info = {
   admin: `0x${string}`;
   name: string;
@@ -99,6 +83,7 @@ type Info = {
   round: number;
   roundStart: bigint;
   started: boolean;
+  cancelled: boolean;
   members: readonly `0x${string}`[];
   payoutOrder: readonly number[];
 };
@@ -118,6 +103,7 @@ function decode(id: number, g: Info): Cycle {
     round: Number(g.round),
     roundStart: Number(g.roundStart),
     started: g.started,
+    cancelled: g.cancelled,
     members: [...g.members],
     payoutOrder: g.payoutOrder.map(Number),
   };
@@ -126,9 +112,9 @@ function decode(id: number, g: Info): Cycle {
 export async function getCycles(): Promise<Cycle[]> {
   if (USING_MOCK) return store.mockListCycles();
   const count = (await publicClient.readContract({
-    address: FACTORY_ADDRESS,
-    abi: FACTORY_ABI,
-    functionName: "cyclesCount",
+    address: CICLO_ADDRESS,
+    abi: CICLO_ABI,
+    functionName: "groupsCount",
   })) as bigint;
 
   const ids = Array.from({ length: Number(count) }, (_, i) => i);
@@ -142,11 +128,11 @@ export async function getCycle(id: number): Promise<Cycle> {
     if (!c) throw new Error("not found");
     return c;
   }
-  const addr = await cycleAddress(id);
   const info = (await publicClient.readContract({
-    address: addr,
+    address: CICLO_ADDRESS,
     abi: CICLO_ABI,
     functionName: "getInfo",
+    args: [BigInt(id)],
   })) as Info;
   return decode(id, info);
 }
@@ -157,27 +143,26 @@ export async function getCycleDetail(id: number): Promise<CycleDetail> {
     if (!d) throw new Error("not found");
     return d;
   }
-  const addr = await cycleAddress(id);
   const c = await getCycle(id);
   const paidThisRound: Record<string, boolean> = {};
   await Promise.all(
     c.members.map(async (m) => {
       paidThisRound[m.toLowerCase()] = (await publicClient.readContract({
-        address: addr,
+        address: CICLO_ADDRESS,
         abi: CICLO_ABI,
         functionName: "hasPaid",
-        args: [c.round, m],
+        args: [BigInt(id), c.round, m],
       })) as boolean;
     })
   );
   const beneficiary =
-    c.started && c.round < c.members.length ? c.members[c.payoutOrder[c.round]] : null;
+    c.started && !c.cancelled && c.round < c.members.length
+      ? c.members[c.payoutOrder[c.round]]
+      : null;
   return { ...c, beneficiary, paidThisRound };
 }
 
-// ---- Escrituras ----
-// createCycle va al factory (despliega el contrato del ciclo);
-// el resto va directo al contrato del ciclo.
+// ---- Escrituras (todas contra el registro único) ----
 
 export async function createCycle(
   name: string,
@@ -205,9 +190,9 @@ export async function createCycle(
   const [account] = await client.getAddresses();
   const hash = await client.writeContract({
     account,
-    address: FACTORY_ADDRESS,
-    abi: FACTORY_ABI,
-    functionName: "createCycle",
+    address: CICLO_ADDRESS,
+    abi: CICLO_ABI,
+    functionName: "createGroup",
     args: [name, cfg.address, parseUnits(amountPerTurn, cfg.decimals), frequency, orderMode, size],
     ...feeOpts(currency),
   } as any);
@@ -220,29 +205,28 @@ export async function joinCycle(id: number, currency: CurrencyKey): Promise<`0x$
     store.mockJoin(id, MOCK_ME);
     return MOCK_HASH;
   }
-  const addr = await cycleAddress(id);
   const client = walletClient();
   await ensureChain(client);
   const [account] = await client.getAddresses();
   const hash = await client.writeContract({
     account,
-    address: addr,
+    address: CICLO_ADDRESS,
     abi: CICLO_ABI,
     functionName: "join",
+    args: [BigInt(id)],
     ...feeOpts(currency),
   } as any);
   await publicClient.waitForTransactionReceipt({ hash });
   return hash;
 }
 
-/** Pagar aporte = approve (al contrato del ciclo) + contribute. */
+/** Pagar aporte = approve (al registro) + contribute. */
 export async function contribute(id: number, currency: CurrencyKey, amount: number): Promise<`0x${string}`> {
   if (USING_MOCK) {
     store.mockContribute(id, MOCK_ME);
     return MOCK_HASH;
   }
   const cfg = CURRENCIES[currency];
-  const addr = await cycleAddress(id);
   const client = walletClient();
   await ensureChain(client);
   const [account] = await client.getAddresses();
@@ -252,7 +236,7 @@ export async function contribute(id: number, currency: CurrencyKey, amount: numb
     address: cfg.address,
     abi: ERC20_ABI,
     functionName: "allowance",
-    args: [account, addr],
+    args: [account, CICLO_ADDRESS],
   })) as bigint;
 
   if (allowance < value) {
@@ -261,7 +245,7 @@ export async function contribute(id: number, currency: CurrencyKey, amount: numb
       address: cfg.address,
       abi: ERC20_ABI,
       functionName: "approve",
-      args: [addr, value],
+      args: [CICLO_ADDRESS, value],
       ...feeOpts(currency),
     } as any);
     await publicClient.waitForTransactionReceipt({ hash: approveHash });
@@ -269,9 +253,10 @@ export async function contribute(id: number, currency: CurrencyKey, amount: numb
 
   const hash = await client.writeContract({
     account,
-    address: addr,
+    address: CICLO_ADDRESS,
     abi: CICLO_ABI,
     functionName: "contribute",
+    args: [BigInt(id)],
     ...feeOpts(currency),
   } as any);
   await publicClient.waitForTransactionReceipt({ hash });
@@ -287,16 +272,15 @@ export async function setOrder(
     store.mockSetOrder(id, order);
     return MOCK_HASH;
   }
-  const addr = await cycleAddress(id);
   const client = walletClient();
   await ensureChain(client);
   const [account] = await client.getAddresses();
   const hash = await client.writeContract({
     account,
-    address: addr,
+    address: CICLO_ADDRESS,
     abi: CICLO_ABI,
     functionName: "setOrder",
-    args: [order],
+    args: [BigInt(id), order],
     ...feeOpts(currency),
   } as any);
   await publicClient.waitForTransactionReceipt({ hash });
@@ -308,15 +292,15 @@ export async function startCycle(id: number, currency: CurrencyKey): Promise<`0x
     store.mockStart(id);
     return MOCK_HASH;
   }
-  const addr = await cycleAddress(id);
   const client = walletClient();
   await ensureChain(client);
   const [account] = await client.getAddresses();
   const hash = await client.writeContract({
     account,
-    address: addr,
+    address: CICLO_ADDRESS,
     abi: CICLO_ABI,
     functionName: "start",
+    args: [BigInt(id)],
     ...feeOpts(currency),
   } as any);
   await publicClient.waitForTransactionReceipt({ hash });
@@ -329,12 +313,11 @@ export async function hasPaidRound(
   who: `0x${string}`
 ): Promise<boolean> {
   if (USING_MOCK) return store.mockHasPaid(id, round, who);
-  const addr = await cycleAddress(id);
   return (await publicClient.readContract({
-    address: addr,
+    address: CICLO_ADDRESS,
     abi: CICLO_ABI,
     functionName: "hasPaid",
-    args: [round, who],
+    args: [BigInt(id), round, who],
   })) as boolean;
 }
 
@@ -343,15 +326,36 @@ export async function claimPot(id: number, currency: CurrencyKey): Promise<`0x${
     store.mockClaim(id);
     return MOCK_HASH;
   }
-  const addr = await cycleAddress(id);
   const client = walletClient();
   await ensureChain(client);
   const [account] = await client.getAddresses();
   const hash = await client.writeContract({
     account,
-    address: addr,
+    address: CICLO_ADDRESS,
     abi: CICLO_ABI,
     functionName: "claimPot",
+    args: [BigInt(id)],
+    ...feeOpts(currency),
+  } as any);
+  await publicClient.waitForTransactionReceipt({ hash });
+  return hash;
+}
+
+/** Cancela el ciclo (solo admin): devuelve los aportes de la ronda en curso. */
+export async function cancelCycle(id: number, currency: CurrencyKey): Promise<`0x${string}`> {
+  if (USING_MOCK) {
+    store.mockCancel(id);
+    return MOCK_HASH;
+  }
+  const client = walletClient();
+  await ensureChain(client);
+  const [account] = await client.getAddresses();
+  const hash = await client.writeContract({
+    account,
+    address: CICLO_ADDRESS,
+    abi: CICLO_ABI,
+    functionName: "cancel",
+    args: [BigInt(id)],
     ...feeOpts(currency),
   } as any);
   await publicClient.waitForTransactionReceipt({ hash });
